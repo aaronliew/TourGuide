@@ -59,6 +59,7 @@ public class TourGuide {
     public Pointer mPointer;
     public Overlay mOverlay;
 
+    private Sequence mSequence;
 
     /*************
      *
@@ -79,7 +80,7 @@ public class TourGuide {
     /**
      * Setter for the animation to be used
      * @param technique Animation to be used
-     * @return return AnimateTutorial instance for chaining purpose
+     * @return return TourGuide instance for chaining purpose
      */
     public TourGuide with(Technique technique) {
         mTechnique = technique;
@@ -89,7 +90,7 @@ public class TourGuide {
     /**
      * Sets which motion type is motionType
      * @param motionType
-     * @return return AnimateTutorial instance for chaining purpose
+     * @return return TourGuide instance for chaining purpose
      */
     public TourGuide motionType(MotionType motionType){
         mMotionType = motionType;
@@ -99,13 +100,14 @@ public class TourGuide {
     /**
      * Sets the duration
      * @param view the view in which the tutorial button will be placed on top of
-     * @return return AnimateTutorial instance for chaining purpose
+     * @return return TourGuide instance for chaining purpose
      */
     public TourGuide playOn(View view){
         mHighlightedView = view;
         setupView();
         return this;
     }
+
 
 
     /**
@@ -169,16 +171,19 @@ public class TourGuide {
 
 
 
-
-
+    /**
+     * Sets the overlay
+     * @param overlay this overlay object should contain the attributes of the overlay, such as background color, animation, Style, etc
+     * @return return TourGuide instance for chaining purpose
+     */
     public TourGuide setOverlay(Overlay overlay){
         mOverlay = overlay;
         return this;
     }
     /**
      * Set the toolTip
-     * @param toolTip
-     * @return return AnimateTutorial instance for chaining purpose
+     * @param toolTip this toolTip object should contain the attributes of the ToolTip, such as, the title text, and the description text, background color, etc
+     * @return return TourGuide instance for chaining purpose
      */
     public TourGuide setToolTip(ToolTip toolTip){
         mToolTip = toolTip;
@@ -186,8 +191,8 @@ public class TourGuide {
     }
     /**
      * Set the Pointer
-     * @param pointer
-     * @return return AnimateTutorial instance for chaining purpose
+     * @param pointer this pointer object should contain the attributes of the Pointer, such as the pointer color, pointer gravity, etc, refer to @Link{pointer}
+     * @return return TourGuide instance for chaining purpose
      */
     public TourGuide setPointer(Pointer pointer){
         mPointer = pointer;
@@ -213,6 +218,65 @@ public class TourGuide {
          }
     }
 
+
+    public TourGuide playLater(View view){
+        mHighlightedView = view;
+        return this;
+    }
+
+    /**************************
+     * Sequence related method
+     **************************/
+
+    public TourGuide playInSequence(Sequence sequence){
+        setSequence(sequence);
+        next();
+        return this;
+    }
+
+    public TourGuide setSequence(Sequence sequence){
+        mSequence = sequence;
+        mSequence.setParentTourGuide(this);
+        for (TourGuide tourGuide : sequence.mTourGuideArray){
+            if (tourGuide.mHighlightedView == null) {
+                throw new NullPointerException("Please specify the view using 'playLater' method");
+            }
+        }
+        return this;
+    }
+
+    public TourGuide next(){
+        if (mFrameLayout!=null) {
+            cleanUp();
+        }
+
+        if (mSequence.mCurrentSequence < mSequence.mTourGuideArray.length) {
+            setToolTip(mSequence.getToolTip());
+            setPointer(mSequence.getPointer());
+            setOverlay(mSequence.getOverlay());
+
+            mHighlightedView = mSequence.getNextTourGuide().mHighlightedView;
+
+            setupView();
+            mSequence.mCurrentSequence++;
+        }
+        return this;
+    }
+
+    /**
+     *
+     * @return FrameLayoutWithHole that is used as overlay
+     */
+    public FrameLayoutWithHole getOverlay(){
+        return mFrameLayout;
+    }
+    /**
+     *
+     * @return the ToolTip container View
+     */
+    public View getToolTip(){
+        return mToolTipViewGroup;
+    }
 
     /******
      *
@@ -276,16 +340,17 @@ public class TourGuide {
         // There is not check for tooltip because tooltip can be null, it means there no tooltip will be shown
 
     }
-    private void handleDisableClicking(FrameLayoutWithHole frameLayoutWithHole) {
-        if (mOverlay != null && mOverlay.mDisableClick) {
+    private void handleDisableClicking(FrameLayoutWithHole frameLayoutWithHole){
+        // 1. if user provides an overlay listener, use that as 1st priority
+        if (mOverlay != null && mOverlay.mOnClickListener!=null) {
+            frameLayoutWithHole.setClickable(true);
+            frameLayoutWithHole.setOnClickListener(mOverlay.mOnClickListener);
+        }
+        // 2. if overlay listener is not provided, check if it's disabled
+        else if (mOverlay != null && mOverlay.mDisableClick) {
+            Log.w("tourguide", "Overlay's default OnClickListener is null, it will proceed to next tourguide when it is clicked");
             frameLayoutWithHole.setViewHole(mHighlightedView);
             frameLayoutWithHole.setSoundEffectsEnabled(false);
-            frameLayoutWithHole.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Log.d("tourguide", "disable, do nothing");
-                }
-            });
         }
     }
 
@@ -355,6 +420,11 @@ public class TourGuide {
             int tempRightX = resultPoint.x + toolTipMeasuredWidth;
             if ( tempRightX > parent.getWidth()){
                 mToolTipViewGroup.getLayoutParams().width = parent.getWidth() - resultPoint.x; //since point.x is negative, use plus
+            }
+
+            // pass toolTip onClickListener into toolTipViewGroup
+            if (mToolTip.mOnClickListener!=null) {
+                mToolTipViewGroup.setOnClickListener(mToolTip.mOnClickListener);
             }
 
             // TODO: no boundary check for height yet, this is a unlikely case though
@@ -631,13 +701,6 @@ public class TourGuide {
             return 0;
         }
     }
-    public FrameLayoutWithHole getOverlay(){
-        return mFrameLayout;
-    }
-    public View getToolTip(){
-        return mToolTipViewGroup;
-    }
-
 
     private boolean isTransparentActivityActive(){
         SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
@@ -709,4 +772,5 @@ public class TourGuide {
             return highlightViewParamsList;
         }
     }
+
 }
