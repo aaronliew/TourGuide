@@ -45,6 +45,15 @@
         <activity
             android:name="tourguide.instrumentation.test.ToolTipMeasureTestActivity"
             android:label="ToolTip Measure Activity" />
+        <activity
+            android:name=".DialogFragmentActivity"
+            android:label="DialogFragmentActivity" />
+        <activity
+            android:name=".NavigationDrawerActivity"
+            android:label="NavigationDrawerActivity" />
+
+
+        <activity android:name="tourguide.tourguide.TransparentActivity" android:theme="@style/Theme.Transparent"/>
 
         <activity
             android:name=".TourGuideDemoMain"

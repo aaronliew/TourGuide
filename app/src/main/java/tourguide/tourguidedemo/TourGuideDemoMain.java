@@ -31,8 +31,8 @@ public class TourGuideDemoMain extends ActionBarActivity {
         public Object getItem(int arg0) { return null;}
         public long getItemId(int position) { return position; }
         public int getCount() {
-            return 16;
-//            return 17;
+//            return 16;
+            return 18;
         }
 
         public View getView(final int position, View convertView, ViewGroup parent) {
@@ -107,6 +107,12 @@ public class TourGuideDemoMain extends ActionBarActivity {
             } else if (position == 15) {
                 intent = new Intent(mActivity, InSequenceActivity.class);
                 text.setText("In Sequence");
+            } else if (position == 16) {
+                intent = new Intent(mActivity, DialogFragmentActivity.class);
+                text.setText("Dialog Fragment");
+            } else if (position == 17) {
+                intent = new Intent(mActivity, NavigationDrawerActivity.class);
+                text.setText("Navigation Drawer");
             }
 //            else if (position == 16){
 //                intent = new Intent(mActivity, MemoryLeakTestActivity.class);
