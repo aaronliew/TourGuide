@@ -73,13 +73,9 @@ public class Overlay implements Serializable {
         return this;
     }
 
-    /**
-     * Set onClickListener for the Overlay
-     * @param onClickListener
-     * @return return Overlay instance for chaining purpose
-     */
-    public Overlay setOnClickListener(View.OnClickListener onClickListener){
-        mOnClickListener=onClickListener;
-        return this;
-    }
+   public Overlay setOnClickListener(View.OnClickListener OnClickListener){
+       mOnClickListener=OnClickListener;
+       return this;
+   }
+
 }

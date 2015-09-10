@@ -108,12 +108,19 @@ public class TourGuideDemoMain extends ActionBarActivity {
                 intent = new Intent(mActivity, InSequenceActivity.class);
                 text.setText("In Sequence");
             } else if (position == 16) {
+                intent = new Intent(mActivity, InSequenceOverlayCustomizationActivity.class);
+                text.setText("In Sequence Overlay Customization");
+            } else if (position == 17) {
+                intent = new Intent(mActivity, FirstTimeUserIsShowingActivity.class);
+                text.setText("First Time User / Visibility of TourGuide");
+            } else if (position == 18) {
                 intent = new Intent(mActivity, DialogFragmentActivity.class);
                 text.setText("Dialog Fragment");
-            } else if (position == 17) {
+            } else if (position == 19) {
                 intent = new Intent(mActivity, NavigationDrawerActivity.class);
                 text.setText("Navigation Drawer");
             }
+
 //            else if (position == 16){
 //                intent = new Intent(mActivity, MemoryLeakTestActivity.class);
 //                text.setText("Memory Leak Test");

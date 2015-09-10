@@ -55,9 +55,11 @@ public class TourGuide {
     private MotionType mMotionType;
     private FrameLayoutWithHole mFrameLayout;
     private View mToolTipViewGroup;
-    public ToolTip mToolTip;
-    public Pointer mPointer;
-    public Overlay mOverlay;
+    private ToolTip mToolTip;
+    private Pointer mPointer;
+    private Overlay mOverlay;
+    private View[] mViews;
+    private Integer CurrentSequence =0;
 
 
     /*************
@@ -113,7 +115,7 @@ public class TourGuide {
      * @param view the view in which the tutorial button will be placed on top of
      * @return return AnimateTutorial instance for chaining purpose
      */
-    public TourGuide playOnDialog(View view){
+    public TourGuide playOnDialog(View view) {
         mHighlightedView = view;
 
         if (!isTransparentActivityActive()) {
@@ -136,18 +138,38 @@ public class TourGuide {
                 }
             });
         }
-        if (isTransparentActivityActive()){
+        if (isTransparentActivityActive()) {
             Log.d("Transparent", "Enter active");
             final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
             viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
                 @Override
                 public void onGlobalLayout() {
                     // make sure this only run once
-                    Log.d("Transparent", "active: "+ getHighlightParamsInfo().getLocationOnScreen()[0]);
+                    Log.d("Transparent", "active: " + getHighlightParamsInfo().getLocationOnScreen()[0]);
                     mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
                     SaveTheEvent(getHighlightParamsInfo());
                 }
             });
+        }
+        return this;
+    }
+
+    public TourGuide playInSequence(View... view){
+        mViews=view;
+        mHighlightedView = mViews[CurrentSequence];
+        setupView();
+        return this;
+    }
+
+
+    public TourGuide next() {
+        cleanUp();
+        CurrentSequence += 1;
+        if (CurrentSequence < mViews.length) {
+            mHighlightedView = mViews[CurrentSequence];
+            setupView();
+        }else{
+            CurrentSequence =0;
         }
         return this;
     }
@@ -166,15 +188,16 @@ public class TourGuide {
         return highlightViewParams;
     }
 
-
-
-
+    public Integer getCurrentSequence() {
+        return CurrentSequence;
+    }
 
 
     public TourGuide setOverlay(Overlay overlay){
         mOverlay = overlay;
         return this;
     }
+
     /**
      * Set the toolTip
      * @param toolTip
@@ -193,6 +216,7 @@ public class TourGuide {
         mPointer = pointer;
         return this;
     }
+
     /**
      * Clean up the tutorial that is added to the activity
      */
@@ -213,6 +237,9 @@ public class TourGuide {
          }
     }
 
+    public boolean isShowing(){
+        return ((mFrameLayout.isShown()));
+    }
 
     /******
      *
@@ -258,6 +285,7 @@ public class TourGuide {
 
                 /* Initialize a frame layout with a hole */
                 mFrameLayout = new FrameLayoutWithHole(mActivity, mHighlightedView, mMotionType, mOverlay);
+
                 /* handle click disable */
                 handleDisableClicking(mFrameLayout);
 
@@ -280,12 +308,23 @@ public class TourGuide {
         if (mOverlay != null && mOverlay.mDisableClick) {
             frameLayoutWithHole.setViewHole(mHighlightedView);
             frameLayoutWithHole.setSoundEffectsEnabled(false);
-            frameLayoutWithHole.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Log.d("tourguide", "disable, do nothing");
-                }
-            });
+
+            //passing Overlay On-Click listener to frame layout
+            if (mOverlay.mOnClickListener!=null) {
+                mFrameLayout.setClickable(true);
+                mFrameLayout.setOnClickListener(mOverlay.mOnClickListener);
+            }
+
+            else{
+                frameLayoutWithHole.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Log.d("tourguide", "disable, do nothing");
+                    }
+                });
+
+            }
+
         }
     }
 
