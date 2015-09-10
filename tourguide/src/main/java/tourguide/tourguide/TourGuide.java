@@ -5,8 +5,12 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.os.Bundle;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -18,12 +22,20 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
+
 import net.i2p.android.ext.floatingactionbutton.FloatingActionButton;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import de.greenrobot.event.EventBus;
 
 /**
  * Created by tanjunrong on 2/10/15.
  */
 public class TourGuide {
+
     /**
      * This describes the animation techniques
      * */
@@ -43,9 +55,10 @@ public class TourGuide {
     private MotionType mMotionType;
     private FrameLayoutWithHole mFrameLayout;
     private View mToolTipViewGroup;
-    private ToolTip mToolTip;
-    private Pointer mPointer;
-    private Overlay mOverlay;
+    public ToolTip mToolTip;
+    public Pointer mPointer;
+    public Overlay mOverlay;
+
 
     /*************
      *
@@ -68,7 +81,7 @@ public class TourGuide {
      * @param technique Animation to be used
      * @return return AnimateTutorial instance for chaining purpose
      */
-    public TourGuide with(Technique technique){
+    public TourGuide with(Technique technique) {
         mTechnique = technique;
         return this;
     }
@@ -94,11 +107,74 @@ public class TourGuide {
         return this;
     }
 
+
+    /**
+     * Sets the duration
+     * @param view the view in which the tutorial button will be placed on top of
+     * @return return AnimateTutorial instance for chaining purpose
+     */
+    public TourGuide playOnDialog(View view){
+        mHighlightedView = view;
+
+        if (!isTransparentActivityActive()) {
+            setTransparentActivity(true);
+            final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
+            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    // make sure this only run once
+
+                    mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+                    Bundle bundle = new Bundle();
+                    bundle.putSerializable("HighlightView", getHighlightParamsInfo());
+                    bundle.putSerializable("Overlay", mOverlay);
+                    bundle.putSerializable("Pointer", mPointer);
+                    Log.d("Height XY Before", String.valueOf(mHighlightedView.getHeight()));
+                    Intent i = new Intent(mActivity, TransparentActivity.class);
+                    i.putExtras(bundle);
+                    mActivity.startActivity(i);
+                }
+            });
+        }
+        if (isTransparentActivityActive()){
+            Log.d("Transparent", "Enter active");
+            final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
+            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    // make sure this only run once
+                    Log.d("Transparent", "active: "+ getHighlightParamsInfo().getLocationOnScreen()[0]);
+                    mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+                    SaveTheEvent(getHighlightParamsInfo());
+                }
+            });
+        }
+        return this;
+    }
+
+    private HighlightViewParams getHighlightParamsInfo(){
+        int [] pos = new int[2];
+        mHighlightedView.getLocationOnScreen(pos);
+        Log.d("Height XY","X Locations on Screen: "+String.valueOf(pos[0]));
+        HighlightViewParams highlightViewParams = new HighlightViewParams();
+        highlightViewParams.setHeight(mHighlightedView.getHeight());
+        highlightViewParams.setWidth(mHighlightedView.getWidth());
+        highlightViewParams.setLocationOnScreen(pos);
+        Log.d("Transparent", "Id: "+mHighlightedView.getId());
+        highlightViewParams.setViewId(mHighlightedView.getId());
+
+        return highlightViewParams;
+    }
+
+
+
+
+
+
     public TourGuide setOverlay(Overlay overlay){
         mOverlay = overlay;
         return this;
     }
-
     /**
      * Set the toolTip
      * @param toolTip
@@ -121,11 +197,22 @@ public class TourGuide {
      * Clean up the tutorial that is added to the activity
      */
      public void cleanUp(){
-         mFrameLayout.cleanUp();
-         if (mToolTipViewGroup!=null) {
-             ((ViewGroup) mActivity.getWindow().getDecorView()).removeView(mToolTipViewGroup);
+         Log.d("Transparent", "Cleanup: "+ isTransparentActivityActive());
+         if (isTransparentActivityActive() && !isCleanUpEvent()){
+             Log.d("Transparent", "Sent View id: "+ mHighlightedView.getId());
+             setCleanUpEvent(true);
+             EventBus.getDefault().post(new CleanUpEvent(mHighlightedView.getId()));
+         }
+         else {
+             Log.d("Transparent", "Cleanup");
+             mFrameLayout.cleanUp();
+             if (mToolTipViewGroup != null) {
+                 ((ViewGroup) mActivity.getWindow().getDecorView()).removeView(mToolTipViewGroup);
+             }
+             setCleanUpEvent(false);
          }
     }
+
 
     /******
      *
@@ -148,7 +235,7 @@ public class TourGuide {
     //TODO: move into Pointer
     private int getYBasedOnGravity(int height){
         int [] pos = new int[2];
-        mHighlightedView.getLocationInWindow(pos);
+        mHighlightedView.getLocationOnScreen(pos);
         int y = pos[1];
         if((mPointer.mGravity & Gravity.BOTTOM) == Gravity.BOTTOM){
             return y+mHighlightedView.getHeight()-height;
@@ -181,7 +268,7 @@ public class TourGuide {
                 }
                 setupFrameLayout();
                 /* setup tooltip view */
-                setupToolTip(mFrameLayout);
+                setupToolTip();
             }
         });
     }
@@ -189,7 +276,7 @@ public class TourGuide {
         // There is not check for tooltip because tooltip can be null, it means there no tooltip will be shown
 
     }
-    private void handleDisableClicking(FrameLayoutWithHole frameLayoutWithHole){
+    private void handleDisableClicking(FrameLayoutWithHole frameLayoutWithHole) {
         if (mOverlay != null && mOverlay.mDisableClick) {
             frameLayoutWithHole.setViewHole(mHighlightedView);
             frameLayoutWithHole.setSoundEffectsEnabled(false);
@@ -201,7 +288,8 @@ public class TourGuide {
             });
         }
     }
-    private void setupToolTip(FrameLayoutWithHole frameLayoutWithHole){
+
+    private void setupToolTip(){
         final FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
 
         if (mToolTip != null) {
@@ -366,7 +454,7 @@ public class TourGuide {
         // but we're adding it to the content area only, so we need to offset it to the same Y value of contentArea
 
         layoutParams.setMargins(0,-pos[1],0,0);
-        contentArea.addView(mFrameLayout, layoutParams);
+        ((ViewGroup) mActivity.getWindow().getDecorView().findViewById(android.R.id.content)).addView(mFrameLayout, layoutParams);
     }
 
     private void performAnimationOn(final View view){
@@ -534,7 +622,11 @@ public class TourGuide {
     }
     private int getScreenWidth(){
         if (mActivity!=null) {
-            return mActivity.getResources().getDisplayMetrics().widthPixels;
+            Display display = mActivity.getWindowManager().getDefaultDisplay();
+            /* getSize() is only available on API 13+ */
+//            Point size = new Point();
+//            display.getSize(size);
+            return display.getWidth();
         } else {
             return 0;
         }
@@ -544,5 +636,77 @@ public class TourGuide {
     }
     public View getToolTip(){
         return mToolTipViewGroup;
+    }
+
+
+    private boolean isTransparentActivityActive(){
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
+        return sharedPref.getBoolean("IsActivityActive", false);
+    }
+
+    private void setTransparentActivity(boolean isActive){
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putBoolean("IsActivityActive", isActive);
+        editor.commit();
+        Log.d("Transparent", "Set transparent to true: "+ isTransparentActivityActive());
+    }
+
+    private void setCleanUpEvent(boolean isSent){
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putBoolean("CleanUpEvent", isSent);
+        editor.commit();
+    }
+
+    private boolean isCleanUpEvent(){
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
+        return sharedPref.getBoolean("CleanUpEvent", false);
+    }
+
+    private void SaveTheEvent(HighlightViewParams highlightViewParams){
+        String gson;
+        SampleJSON sampleJSON;
+
+        if (GetTheEvent()!=null){
+            sampleJSON= GetTheEvent();
+            sampleJSON.getHighlightViewParamsList().add(highlightViewParams);
+            sampleJSON.setHighlightViewParamsList(sampleJSON.getHighlightViewParamsList());
+        }
+        else{
+            sampleJSON= new SampleJSON();
+            List<HighlightViewParams> highlightViewParamsList = new ArrayList<>();
+            highlightViewParamsList.add(highlightViewParams);
+            sampleJSON.setHighlightViewParamsList(highlightViewParamsList);
+        }
+
+        gson = new Gson().toJson(sampleJSON);
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putString("Sticky Event", gson);
+        editor.commit();
+    }
+
+    private SampleJSON GetTheEvent(){
+        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide",Context.MODE_PRIVATE);
+        String Json = sharedPref.getString("Sticky Event", "");
+        return new Gson().fromJson(Json, SampleJSON.class);
+    }
+
+    public void closetheTourGuide(){
+        EventBus.getDefault().post(new ActivityEvent());
+    }
+
+    private class SampleJSON {
+
+        public List<HighlightViewParams> highlightViewParamsList;
+
+        public void setHighlightViewParamsList(List<HighlightViewParams> highlightViewParamsList) {
+            this.highlightViewParamsList = highlightViewParamsList;
+        }
+
+        public List<HighlightViewParams> getHighlightViewParamsList() {
+            return highlightViewParamsList;
+        }
     }
 }

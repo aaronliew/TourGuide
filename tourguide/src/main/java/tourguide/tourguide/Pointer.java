@@ -3,10 +3,12 @@ package tourguide.tourguide;
 import android.graphics.Color;
 import android.view.Gravity;
 
+import java.io.Serializable;
+
 /**
  * Created by tanjunrong on 6/20/15.
  */
-public class Pointer {
+public class Pointer implements Serializable {
     public int mGravity = Gravity.CENTER;
     public int mColor = Color.WHITE;
 

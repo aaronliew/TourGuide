@@ -4,10 +4,12 @@ import android.graphics.Color;
 import android.view.View;
 import android.view.animation.Animation;
 
+import java.io.Serializable;
+
 /**
  * Created by tanjunrong on 6/20/15.
  */
-public class Overlay {
+public class Overlay implements Serializable {
     public int mBackgroundColor;
     public boolean mDisableClick;
     public Style mStyle;
