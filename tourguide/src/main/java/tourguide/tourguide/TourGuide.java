@@ -5,12 +5,14 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Point;
-import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.content.LocalBroadcastManager;
+import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -18,18 +20,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.google.gson.Gson;
 
 import net.i2p.android.ext.floatingactionbutton.FloatingActionButton;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import de.greenrobot.event.EventBus;
 
 /**
  * Created by tanjunrong on 2/10/15.
@@ -61,20 +61,45 @@ public class TourGuide {
 
     private Sequence mSequence;
 
+    private WindowManager.LayoutParams params;
+
+    WindowManager wm;
+
+    private static TourGuideDataHolder tourGuideDataHolder = TourGuideDataHolder.getInstance();
+
     /*************
      *
      * Public API
      *
      *************/
 
+    public void initWindowManager(){
+        params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY,
+                0,
+//              WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+//                      | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.RIGHT | Gravity.TOP;
+        params.setTitle("Load Average");
+        wm = (WindowManager) mActivity.getSystemService(Activity.WINDOW_SERVICE);
+    }
+
     /* Static builder */
     public static TourGuide init(Activity activity){
+        if (activity instanceof TransparentActivity){
+            tourGuideDataHolder.setmActivity(activity);
+        }
+
         return new TourGuide(activity);
     }
 
     /* Constructor */
     public TourGuide(Activity activity){
         mActivity = activity;
+
     }
 
     /**
@@ -104,57 +129,73 @@ public class TourGuide {
      */
     public TourGuide playOn(View view){
         mHighlightedView = view;
+        initWindowManager();
         setupView();
         return this;
     }
 
+//    public TourGuide playOn(View view){
+//
+////        if (getVisibleFragment()!=null){
+////            Log.d("Checking fragment", "fragment!");
+////        }
+//        mHighlightedView = view;
+//        setupTransparentActivity();
+//        return this;
+//    }
 
+    private void setupTransparentActivity(){
 
-    /**
-     * Sets the duration
-     * @param view the view in which the tutorial button will be placed on top of
-     * @return return AnimateTutorial instance for chaining purpose
-     */
-    public TourGuide playOnDialog(View view){
-        mHighlightedView = view;
+        mHighlightedView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
 
-        if (!isTransparentActivityActive()) {
-            setTransparentActivity(true);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                closetheTourGuide();
+            }
+        });
+        if (!tourGuideDataHolder.isTransparentScreenShown() && !(mActivity instanceof TransparentActivity)) {
+            tourGuideDataHolder.setTransparentScreenShown(true);
             final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
             viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
                 @Override
                 public void onGlobalLayout() {
                     // make sure this only run once
-
                     mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-                    Bundle bundle = new Bundle();
-                    bundle.putSerializable("HighlightView", getHighlightParamsInfo());
-                    bundle.putSerializable("Overlay", mOverlay);
-                    bundle.putSerializable("Pointer", mPointer);
-                    Log.d("Height XY Before", String.valueOf(mHighlightedView.getHeight()));
+                    TourGuideDataHolder.getInstance().addData(mHighlightedView.getId(), TourGuide.this);
+                    TourGuideDataHolder.getInstance().addDataToViewHighlightViewMap(mHighlightedView.getId(), getHighlightViewInfo());
+
                     Intent i = new Intent(mActivity, TransparentActivity.class);
-                    i.putExtras(bundle);
                     mActivity.startActivity(i);
                 }
             });
         }
-        if (isTransparentActivityActive()){
-            Log.d("Transparent", "Enter active");
-            final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
-            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-                    // make sure this only run once
-                    Log.d("Transparent", "active: "+ getHighlightParamsInfo().getLocationOnScreen()[0]);
-                    mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-                    SaveTheEvent(getHighlightParamsInfo());
-                }
-            });
+        else if (tourGuideDataHolder.isTransparentScreenShown() && !(mActivity instanceof TransparentActivity) ) {
+            if (TourGuideDataHolder.getInstance().isLayoutDrawn()){
+                nextTourGuideEvent(mHighlightedView.getId());
+            }
+            else {
+                final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
+                viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+
+                        mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+                        TourGuideDataHolder.getInstance().addData(mHighlightedView.getId(), TourGuide.this);
+                        TourGuideDataHolder.getInstance().addDataToViewHighlightViewMap(mHighlightedView.getId(), getHighlightViewInfo());
+                    }
+                });
+            }
         }
-        return this;
+        else {
+            setupView();
+        }
     }
 
-    private HighlightViewParams getHighlightParamsInfo(){
+    private HighlightViewParams getHighlightViewInfo(){
         int [] pos = new int[2];
         mHighlightedView.getLocationOnScreen(pos);
         Log.d("Height XY","X Locations on Screen: "+String.valueOf(pos[0]));
@@ -167,9 +208,6 @@ public class TourGuide {
 
         return highlightViewParams;
     }
-
-
-
 
     /**
      * Sets the overlay
@@ -202,19 +240,21 @@ public class TourGuide {
      * Clean up the tutorial that is added to the activity
      */
      public void cleanUp(){
-         Log.d("Transparent", "Cleanup: "+ isTransparentActivityActive());
-         if (isTransparentActivityActive() && !isCleanUpEvent()){
+         Log.d("Transparent", "Cleanup: "+ tourGuideDataHolder.isTransparentScreenShown());
+         if (tourGuideDataHolder.isTransparentScreenShown() && !(mActivity instanceof TransparentActivity) && mHighlightedView!=null){
              Log.d("Transparent", "Sent View id: "+ mHighlightedView.getId());
-             setCleanUpEvent(true);
-             EventBus.getDefault().post(new CleanUpEvent(mHighlightedView.getId()));
+             if (mHighlightedView.getId()!=-1) {
+                 cleanUpEvent(mHighlightedView.getId());
+             }
          }
          else {
              Log.d("Transparent", "Cleanup");
-             mFrameLayout.cleanUp();
+             if (mFrameLayout!=null) {
+                 mFrameLayout.cleanUp();
+             }
              if (mToolTipViewGroup != null) {
                  ((ViewGroup) mActivity.getWindow().getDecorView()).removeView(mToolTipViewGroup);
              }
-             setCleanUpEvent(false);
          }
     }
 
@@ -335,6 +375,7 @@ public class TourGuide {
                 setupToolTip();
             }
         });
+
     }
     private void checking(){
         // There is not check for tooltip because tooltip can be null, it means there no tooltip will be shown
@@ -524,7 +565,9 @@ public class TourGuide {
         // but we're adding it to the content area only, so we need to offset it to the same Y value of contentArea
 
         layoutParams.setMargins(0,-pos[1],0,0);
-        ((ViewGroup) mActivity.getWindow().getDecorView().findViewById(android.R.id.content)).addView(mFrameLayout, layoutParams);
+
+        wm.addView(mFrameLayout,params);
+//        ((ViewGroup) mActivity.getWindow().getDecorView().findViewById(android.R.id.content)).addView(mFrameLayout, layoutParams);
     }
 
     private void performAnimationOn(final View view){
@@ -702,75 +745,51 @@ public class TourGuide {
         }
     }
 
-    private boolean isTransparentActivityActive(){
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        return sharedPref.getBoolean("IsActivityActive", false);
-    }
-
-    private void setTransparentActivity(boolean isActive){
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putBoolean("IsActivityActive", isActive);
-        editor.commit();
-        Log.d("Transparent", "Set transparent to true: "+ isTransparentActivityActive());
-    }
-
-    private void setCleanUpEvent(boolean isSent){
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putBoolean("CleanUpEvent", isSent);
-        editor.commit();
-    }
-
-    private boolean isCleanUpEvent(){
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        return sharedPref.getBoolean("CleanUpEvent", false);
-    }
-
-    private void SaveTheEvent(HighlightViewParams highlightViewParams){
-        String gson;
-        SampleJSON sampleJSON;
-
-        if (GetTheEvent()!=null){
-            sampleJSON= GetTheEvent();
-            sampleJSON.getHighlightViewParamsList().add(highlightViewParams);
-            sampleJSON.setHighlightViewParamsList(sampleJSON.getHighlightViewParamsList());
-        }
-        else{
-            sampleJSON= new SampleJSON();
-            List<HighlightViewParams> highlightViewParamsList = new ArrayList<>();
-            highlightViewParamsList.add(highlightViewParams);
-            sampleJSON.setHighlightViewParamsList(highlightViewParamsList);
-        }
-
-        gson = new Gson().toJson(sampleJSON);
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putString("Sticky Event", gson);
-        editor.commit();
-    }
-
-    private SampleJSON GetTheEvent(){
-        SharedPreferences sharedPref = mActivity.getSharedPreferences("TourGuide",Context.MODE_PRIVATE);
-        String Json = sharedPref.getString("Sticky Event", "");
-        return new Gson().fromJson(Json, SampleJSON.class);
-    }
-
     public void closetheTourGuide(){
-        EventBus.getDefault().post(new ActivityEvent());
+        tourGuideDataHolder.getmActivity().finish();
+//        closeActivityEvent();
     }
 
-    private class SampleJSON {
-
-        public List<HighlightViewParams> highlightViewParamsList;
-
-        public void setHighlightViewParamsList(List<HighlightViewParams> highlightViewParamsList) {
-            this.highlightViewParamsList = highlightViewParamsList;
-        }
-
-        public List<HighlightViewParams> getHighlightViewParamsList() {
-            return highlightViewParamsList;
-        }
+    // Send an Intent with an action named "my-event".
+    private void cleanUpEvent(Integer ViewID) {
+        Log.d("message", "message sent: CleanUpEvent");
+        Intent intent = new Intent(TransparentActivity.KEY_CLEAN_UP_EVENT);
+        // add data
+        intent.putExtra("HighlightViewID", ViewID);
+        LocalBroadcastManager.getInstance(mActivity).sendBroadcast(intent);
     }
+
+    // Send an Intent with an action named "my-event".
+    private void nextTourGuideEvent(Integer ViewID) {
+        Log.d("message", "message sent: NextTourGuideEvent");
+        TourGuideDataHolder.getInstance().addData(mHighlightedView.getId(), TourGuide.this);
+        TourGuideDataHolder.getInstance().addDataToViewHighlightViewMap(mHighlightedView.getId(), getHighlightViewInfo());
+        Intent intent = new Intent(TransparentActivity.KEY_NEXT_TOURGUIDE_EVENT);
+        // add data
+        intent.putExtra("HighlightViewID", ViewID);
+        LocalBroadcastManager.getInstance(mActivity).sendBroadcast(intent);
+    }
+
+    private void closeActivityEvent() {
+        Log.d("message", "message sent");
+        Intent intent = new Intent(TransparentActivity.KEY_CLOSE_ACTIVITY_EVENT);
+        // add data
+        intent.putExtra("message", "data");
+        LocalBroadcastManager.getInstance(mActivity).sendBroadcast(intent);
+    }
+
+    public Fragment getVisibleFragment(){
+        if (!(mActivity instanceof TransparentActivity)) {
+            FragmentManager fragmentManager = ((ActionBarActivity) mActivity).getSupportFragmentManager();
+            List<Fragment> fragments = fragmentManager.getFragments();
+            for (Fragment fragment : fragments) {
+                if (fragment != null && fragment.isVisible())
+                    return fragment;
+            }
+
+        }
+        return null;
+    }
+
 
 }

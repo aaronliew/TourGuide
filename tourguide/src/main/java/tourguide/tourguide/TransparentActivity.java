@@ -1,50 +1,76 @@
 package tourguide.tourguide;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.os.PersistableBundle;
-import android.support.v4.app.FragmentActivity;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
-import com.google.gson.Gson;
-
-import net.i2p.android.ext.floatingactionbutton.FloatingActionButton;
-
 import java.util.HashMap;
-import java.util.List;
-
-import de.greenrobot.event.EventBus;
+import java.util.Map;
 
 /**f
 * Created by aaronliew on 9/2/15.
 */
 public class TransparentActivity extends Activity {
     RelativeLayout relativeLayout;
-    ToolTip toolTip;
-    Pointer pointer;
+
+    TourGuideDataHolder tourGuideDataHolder = TourGuideDataHolder.getInstance();
     public static String TAG= TransparentActivity.class.getSimpleName();
 
+    static String KEY_CLEAN_UP_EVENT = "CleanUpEvent";
+    static String KEY_CLOSE_ACTIVITY_EVENT = "CloseActivityEvent";
+    static String KEY_NEXT_TOURGUIDE_EVENT = "NextTourGuideEvent";
+
+
     public HashMap<Integer, TourGuide> integerTourGuideHashMap;
+
+    private BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals("CleanUpEvent")) {
+                int HighlightViewID = intent.getIntExtra("HighlightViewID", 0);
+                cleanUp(HighlightViewID);
+            }
+
+            if (action.equals("CloseActivityEvent")){
+                Log.d("activity", "close");
+                finish();
+            }
+
+            if (action.equals("NextTourGuideEvent")&& TourGuideDataHolder.getInstance().isLayoutDrawn()){
+                Log.d("IsActive", "next tourguide");
+                Integer HighlightViewID = intent.getIntExtra("HighlightViewID", 0);
+
+                setupView(tourGuideDataHolder.getViewHighlightViewMap().get(HighlightViewID),
+                        tourGuideDataHolder.getViewTourGuideMap().get(HighlightViewID));
+
+                tourGuideDataHolder.clearViewTourGuideMap();
+                tourGuideDataHolder.clearViewHighlightViewMap();
+            }
+
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         Log.d("Transparent","On Create");
+
 
         integerTourGuideHashMap= new HashMap<>();
 
@@ -61,70 +87,49 @@ public class TransparentActivity extends Activity {
 
         relativeLayout = (RelativeLayout)findViewById(R.id.test);
 
-        Intent intent=this.getIntent();
-        Bundle bundle=intent.getExtras();
-
-
-        //pass technique
-        final HighlightViewParams highlightViewParams= (HighlightViewParams) bundle.getSerializable("HighlightView");
-
-        toolTip = new ToolTip().
-                setTitle("Welcome!").
-                setDescription("Click on Get Started to begin...");
-
-        // Setup pointer for demo
-        pointer = new Pointer();
-
-        Log.d("Height XY",String.valueOf(highlightViewParams.getHeight()));
-
         final ViewTreeObserver viewTreeObserver = relativeLayout.getViewTreeObserver();
         viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
                 // make sure this only run once
-
                 relativeLayout.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-                setupView(highlightViewParams);
 
-                if (GetTheEvent()!=null) {
-                    for (HighlightViewParams highlightViewParams : GetTheEvent().getHighlightViewParamsList()) {
-                        setupView(highlightViewParams);
-                    }
+                for (Map.Entry<Integer,HighlightViewParams> entry : tourGuideDataHolder.getViewHighlightViewMap().entrySet()){
+                    HighlightViewParams highlightViewParams = entry.getValue();
+                    setupView(highlightViewParams, tourGuideDataHolder.getViewTourGuideMap().get(entry.getKey()));
                 }
 
-                TransparentActivity.this.getSharedPreferences("TourGuide", 0).edit().remove("Sticky Event").commit();
+                tourGuideDataHolder.setLayoutDrawn(true);
+                tourGuideDataHolder.clearViewTourGuideMap();
+                tourGuideDataHolder.clearViewHighlightViewMap();
+
             }
         });
     }
 
-    public void onEvent(ActivityEvent event){
-//        finish();
-        finish();
-    }
 
     @Override
     protected void onStart() {
         super.onStart();
-        EventBus.getDefault().register(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         Log.d(TAG, "Pause");
-//        setTransparentActivity(false);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        EventBus.getDefault().unregister(this);
-        setTransparentActivity(false);
+        tourGuideDataHolder.setTransparentScreenShown(false);
+        tourGuideDataHolder.setLayoutDrawn(false);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
         Log.d(TAG, "Stop");
     }
 
-    public void setupView(final HighlightViewParams highlightViewParams){
-
+    public void setupView(final HighlightViewParams highlightViewParams, TourGuide tourGuide){
+        Log.d("Tempo","Temporary setup");
         DisplayMetrics dm = new DisplayMetrics();
         TransparentActivity.this.getWindowManager().getDefaultDisplay().getMetrics(dm);
         int topOffset = dm.heightPixels - relativeLayout.getMeasuredHeight();
@@ -140,18 +145,15 @@ public class TransparentActivity extends Activity {
 
         Log.d("Transparent", "View id:  " + highlightViewParams.getViewId());
         integerTourGuideHashMap.put(highlightViewParams.getViewId(), TourGuide.init(TransparentActivity.this).with(TourGuide.Technique.Click)
-                .setPointer(pointer)
-                .setToolTip(toolTip)
-                .setOverlay(null)
+                .setPointer(tourGuide.mPointer)
+                .setToolTip(tourGuide.mToolTip)
+                .setOverlay(tourGuide.mOverlay)
                 .playOn(mHighlightedView));
-
-
-
     }
 
-    public void onEvent(CleanUpEvent event) {
-        Log.d("Transparent", "Received View id: "+event.getViewId());
-        integerTourGuideHashMap.get(event.getViewId()).cleanUp();
+    public void cleanUp(Integer viewID) {
+        Log.d("Transparent", "Received View id: "+viewID);
+        integerTourGuideHashMap.get(viewID).cleanUp();
     }
 
     public static float convertPixelsToDp(float px, Context context){
@@ -160,32 +162,18 @@ public class TransparentActivity extends Activity {
         float dp = px / (metrics.densityDpi / 160f);
         return dp;
     }
-    private void setTransparentActivity(boolean isActive){
-        SharedPreferences sharedPref = this.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putBoolean("IsActivityActive", isActive);
-        editor.commit();
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter("my-event");
+        //list of events
+        filter.addAction(KEY_CLEAN_UP_EVENT);
+        filter.addAction(KEY_CLOSE_ACTIVITY_EVENT);
+        filter.addAction(KEY_NEXT_TOURGUIDE_EVENT);
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
-    private SampleJSON GetTheEvent(){
-        SharedPreferences sharedPref = this.getSharedPreferences("TourGuide", Context.MODE_PRIVATE);
-        String Json = sharedPref.getString("Sticky Event", "");
-        Log.d("Transparent", "Json String: "+Json);
-        return new Gson().fromJson(Json, SampleJSON.class);
-    }
-
-    private class SampleJSON {
-
-        public List<HighlightViewParams> highlightViewParamsList;
-
-        public void setHighlightViewParamsList(List<HighlightViewParams> highlightViewParamsList) {
-            this.highlightViewParamsList = highlightViewParamsList;
-        }
-
-        public List<HighlightViewParams> getHighlightViewParamsList() {
-            return highlightViewParamsList;
-        }
-    }
 }
 /**
 * Problem : If there is two tourguides or more, need to launch two activities
