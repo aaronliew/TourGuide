@@ -41,7 +41,7 @@ public class TourGuideDemoMain extends ActionBarActivity {
         }
 
         public int getCount() {
-            return 18;
+            return 19;
         }
 
         public View getView(final int position, View convertView, ViewGroup parent) {
@@ -259,11 +259,23 @@ public class TourGuideDemoMain extends ActionBarActivity {
                 });
 
             } else if (position == 17) {
-                mIntent = new Intent(mActivity, DialogFragmentActivity.class);
                 text.setText("Dialog Fragment");
+                row.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        mIntent = new Intent(mActivity, DialogFragmentActivity.class);
+                        startActivity(mIntent);
+                    }
+                });
             } else if (position == 18) {
-                mIntent = new Intent(mActivity, NavigationDrawerActivity.class);
                 text.setText("Navigation Drawer");
+                row.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        mIntent = new Intent(mActivity, NavigationDrawerActivity.class);
+                        startActivity(mIntent);
+                    }
+                });
 
             }
 

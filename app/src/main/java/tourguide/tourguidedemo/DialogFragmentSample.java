@@ -1,12 +1,14 @@
 package tourguide.tourguidedemo;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,7 +33,7 @@ public class DialogFragmentSample extends DialogFragment {
         View view = inflater.inflate(R.layout.fragment_dialog_basic, container);
         getDialog().setTitle("Bello!");
 
-        Button button = (Button) view.findViewById(R.id.button);
+        final Button button = (Button) view.findViewById(R.id.button);
         final ImageButton closebutton = (ImageButton) view.findViewById(R.id.cross);
         final ImageButton gmailbutton = (ImageButton) view.findViewById(R.id.gmail);
         FrameLayout frameLayout = (FrameLayout) view.findViewById(R.id.tourguide);
@@ -40,6 +42,15 @@ public class DialogFragmentSample extends DialogFragment {
                 setTitle("Welcome!").
                 setDescription("Click on Get Started to begin...");
 
+        final ToolTip toolTip1 = new ToolTip().
+                setTitle("Test!").
+                setDescription("Click on Get Started to begin...");
+
+        final ToolTip toolTip2 = new ToolTip().
+                setTitle("Test Master!").
+                setDescription("Click on Get Started to begin...");
+
+
         // Setup pointer for demo
         final Pointer pointer = new Pointer();
 
@@ -47,42 +58,37 @@ public class DialogFragmentSample extends DialogFragment {
         // the return handler is used to manipulate the cleanup of all the tutorial elements
         mTutorialHandler = TourGuide.init(getActivity()).with(TourGuide.Technique.Click)
                 .setPointer(pointer)
-                .setToolTip(toolTip)
+                .setToolTip(toolTip1)
                 .setOverlay(new Overlay().setBackgroundColor(Color.parseColor("#66FF0000")))
-                .playOnDialog(button);
+                .playOn(closebutton);
 
 
-        mTutorialHandler1 = TourGuide.init(getActivity()).with(TourGuide.Technique.Click)
-                .setPointer(pointer)
-                .setToolTip(toolTip)
-                .setOverlay(new Overlay().setBackgroundColor(Color.parseColor("#66FF0000")))
-                .playOnDialog(closebutton);
-
-        mTutorialHandler2 = TourGuide.init(getActivity()).with(TourGuide.Technique.Click)
-                .setPointer(pointer)
-                .setToolTip(toolTip)
-                .setOverlay(new Overlay().setBackgroundColor(Color.parseColor("#66FF0000")))
-                .playOnDialog(gmailbutton);
-
-
-
-        getDialog().setTitle("hihi Sir!");
-
-//        mTutorialHandler.contentArea = frameLayout;
-//        mTutorialHandler.mContainer = frameLayout;
+//        mTutorialHandler1 = TourGuide.init(getActivity()).with(TourGuide.Technique.Click)
+//                .setPointer(pointer)
+//                .setToolTip(toolTip)
+//                .setOverlay(null)
+//                .playOn(closebutton);
+//
+//        mTutorialHandler2 = TourGuide.init(getActivity()).with(TourGuide.Technique.Click)
+//                .setPointer(pointer)
+//                .setToolTip(toolTip2)
+//                .setOverlay(new Overlay().setBackgroundColor(Color.parseColor("#66FF0000")));
+//                .playOnWindow(gmailbutton);
 
 
         closebutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mTutorialHandler1.cleanUp();
+                mTutorialHandler.cleanUp();
+                mTutorialHandler.setToolTip(toolTip).playOn(gmailbutton);
             }
         });
 
         gmailbutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mTutorialHandler2.cleanUp();
+                mTutorialHandler.cleanUp();
+                mTutorialHandler.setToolTip(toolTip2).playOn(button);
             }
         });
 
@@ -90,45 +96,26 @@ public class DialogFragmentSample extends DialogFragment {
             @Override
             public void onClick(View v) {
                 mTutorialHandler.cleanUp();
-                mTutorialHandler.closetheTourGuide();
                 dismissAllowingStateLoss();
             }
         });
         return view;
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        Window window = getDialog().getWindow();
-//        window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        window.setLayout(1000, 1000);
-//        window.setGravity(Gravity.CENTER);
-//        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-    }
-
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-
-        // request a window without the title
-//        dialog.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
+        dialog.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
         return dialog;
     }
 
     @Override
-    public void onStart()
-    {
-        super.onStart();
-        Dialog dialog = getDialog();
-        if (dialog != null)
-        {
-            int width = ViewGroup.LayoutParams.MATCH_PARENT;
-            int height = ViewGroup.LayoutParams.MATCH_PARENT;
-            dialog.getWindow().setLayout(width, height);
-        }
+    public void onResume() {
+        super.onResume();
+        Window window = getDialog().getWindow();
+        window.setLayout(1000, 1000);
     }
+
+
 }

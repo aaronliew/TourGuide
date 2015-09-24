@@ -1,14 +1,11 @@
 package tourguide.tourguidedemo;
 
-import android.app.Activity;
 import android.app.SearchManager;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.ActionBarDrawerToggle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarActivity;
@@ -113,7 +110,7 @@ public class NavigationDrawerActivity extends ActionBarActivity{
                 .setPointer(pointer)
                 .setToolTip(toolTip)
                 .setOverlay(new Overlay().setBackgroundColor(Color.parseColor("#66FF0000")))
-                .playOnDialog(view);
+                .playOn(view);
     }
 
     private View getDrawerView(int wantedPosition){
@@ -183,13 +180,17 @@ public class NavigationDrawerActivity extends ActionBarActivity{
 
     private void selectItem(int position) {
         // update the main content by replacing fragments
+        if (mTutorialHandler!=null) {
+            Log.d("Drawer","close the drawer");
+            mTutorialHandler.closetheTourGuide();
+        }
         android.app.Fragment fragment = new PlanetFragment();
         Bundle args = new Bundle();
         args.putInt(PlanetFragment.ARG_PLANET_NUMBER, position);
         fragment.setArguments(args);
 
         android.app.FragmentManager fragmentManager = getFragmentManager();
-        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commit();
+        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commitAllowingStateLoss();
 
         // update selected item and title, then close the drawer
         mDrawerList.setItemChecked(position, true);
