@@ -26,7 +26,7 @@ android {
     def gradleProps = getGradleProperties()
     defaultConfig {
         applicationId "tourguide.tourguide"
-        minSdkVersion 11
+        minSdkVersion 12
         targetSdkVersion 21
         versionCode gradleProps['VERSION_CODE'].toInteger()
         versionName gradleProps['VERSION_NAME']
