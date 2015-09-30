@@ -6,16 +6,19 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.util.Log;
-import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import net.i2p.android.ext.floatingactionbutton.FloatingActionButton;
@@ -49,6 +52,9 @@ public class TourGuide {
 
     private Sequence mSequence;
 
+    private WindowManager.LayoutParams params;
+    private WindowManager wm;
+
     /*************
      *
      * Public API
@@ -63,6 +69,7 @@ public class TourGuide {
     /* Constructor */
     public TourGuide(Activity activity){
         mActivity = activity;
+        setupWindowManager();
     }
 
     /**
@@ -91,6 +98,8 @@ public class TourGuide {
      * @return return TourGuide instance for chaining purpose
      */
     public TourGuide playOn(View view){
+
+        setupWindowManager();
         mHighlightedView = view;
         setupView();
         return this;
@@ -128,8 +137,10 @@ public class TourGuide {
      */
      public void cleanUp(){
          mFrameLayout.cleanUp();
-         if (mToolTipViewGroup!=null) {
-             ((ViewGroup) mActivity.getWindow().getDecorView()).removeView(mToolTipViewGroup);
+//         if (mToolTipViewGroup!=null) {
+         if (mToolTipViewGroup!=null && mToolTipViewGroup.getParent()!=null) {
+             wm.removeView(mToolTipViewGroup);
+//             ((ViewGroup) mActivity.getWindow().getDecorView()).removeView(mToolTipViewGroup);
          }
     }
 
@@ -143,6 +154,7 @@ public class TourGuide {
      **************************/
 
     public TourGuide playInSequence(Sequence sequence){
+        Log.d("testing", "play in sequence");
         setSequence(sequence);
         next();
         return this;
@@ -160,6 +172,7 @@ public class TourGuide {
     }
 
     public TourGuide next(){
+        Log.d("testing", "next");
         if (mFrameLayout!=null) {
             cleanUp();
         }
@@ -170,11 +183,29 @@ public class TourGuide {
             setOverlay(mSequence.getOverlay());
 
             mHighlightedView = mSequence.getNextTourGuide().mHighlightedView;
-
             setupView();
             mSequence.mCurrentSequence++;
         }
         return this;
+    }
+
+    private void setupWindowManager(){
+        params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT, 8, PixelFormat.TRANSLUCENT);
+//        params.gravity = Gravity.BOTTOM | Gravity.TOP;
+         wm = (WindowManager) mActivity.getSystemService(Activity.WINDOW_SERVICE);
+
+    }
+
+    private int getStatusBarHeight() {
+        int result = 0;
+        int resourceId = mActivity.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = mActivity.getResources().getDimensionPixelSize(resourceId);
+        }
+        return result;
     }
 
     /**
@@ -212,42 +243,52 @@ public class TourGuide {
     //TODO: move into Pointer
     private int getYBasedOnGravity(int height){
         int [] pos = new int[2];
-        mHighlightedView.getLocationInWindow(pos);
+        mHighlightedView.getLocationOnScreen(pos);
         int y = pos[1];
         if((mPointer.mGravity & Gravity.BOTTOM) == Gravity.BOTTOM){
-            return y+mHighlightedView.getHeight()-height;
+            return y+mHighlightedView.getHeight()-height-getStatusBarHeight();
         } else if ((mPointer.mGravity & Gravity.TOP) == Gravity.TOP) {
-            return y;
+            return y - getStatusBarHeight();
         }else { // this is center
-            return y+mHighlightedView.getHeight()/2-height/2;
+            return y+mHighlightedView.getHeight()/2-height/2 - getStatusBarHeight();
         }
     }
 
     private void setupView(){
 //        TODO: throw exception if either mActivity, mDuration, mHighlightedView is null
         checking();
-        final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
-        viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                // make sure this only run once
-                mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+        if (mHighlightedView.isAttachedToWindow()){
+            initTourGuide();
+        }
+        //for the first time
+        else{
+            final ViewTreeObserver viewTreeObserver = mHighlightedView.getViewTreeObserver();
+            viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    // make sure this only run once
+                    Log.d("Next", "TourGuide");
+                    mHighlightedView.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+                    initTourGuide();
+                }
+            });
+        }
+    }
 
-                /* Initialize a frame layout with a hole */
-                mFrameLayout = new FrameLayoutWithHole(mActivity, mHighlightedView, mMotionType, mOverlay);
+    private void initTourGuide(){
+                        /* Initialize a frame layout with a hole */
+        mFrameLayout = new FrameLayoutWithHole(mActivity, mHighlightedView, mMotionType, mOverlay);
                 /* handle click disable */
-                handleDisableClicking(mFrameLayout);
+        handleDisableClicking(mFrameLayout);
 
                 /* setup floating action button */
-                if (mPointer != null) {
-                    FloatingActionButton fab = setupAndAddFABToFrameLayout(mFrameLayout);
-                    performAnimationOn(fab);
-                }
-                setupFrameLayout();
+        if (mPointer != null) {
+            FloatingActionButton fab = setupAndAddFABToFrameLayout(mFrameLayout);
+            performAnimationOn(fab);
+        }
+        setupFrameLayout();
                 /* setup tooltip view */
-                setupToolTip();
-            }
-        });
+        setupToolTip();
     }
     private void checking(){
         // There is not check for tooltip because tooltip can be null, it means there no tooltip will be shown
@@ -256,6 +297,7 @@ public class TourGuide {
     private void handleDisableClicking(FrameLayoutWithHole frameLayoutWithHole){
         // 1. if user provides an overlay listener, use that as 1st priority
         if (mOverlay != null && mOverlay.mOnClickListener!=null) {
+            Log.d("testing", "setOverlay listener");
             frameLayoutWithHole.setClickable(true);
             frameLayoutWithHole.setOnClickListener(mOverlay.mOnClickListener);
         }
@@ -271,7 +313,12 @@ public class TourGuide {
     }
 
     private void setupToolTip(){
-        final FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+//        final FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY,
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                PixelFormat.TRANSLUCENT);
+        layoutParams.gravity = Gravity.TOP | Gravity.START;
 
         if (mToolTip != null) {
             /* inflate and get views */
@@ -320,10 +367,11 @@ public class TourGuide {
 
             // add view to parent
 //            ((ViewGroup) mActivity.getWindow().getDecorView().findViewById(android.R.id.content)).addView(mToolTipViewGroup, layoutParams);
-            parent.addView(mToolTipViewGroup, layoutParams);
+            wm.addView(mToolTipViewGroup, layoutParams);
 
             // 1. width < screen check
             if (toolTipMeasuredWidth > parent.getWidth()){
+
                 mToolTipViewGroup.getLayoutParams().width = parent.getWidth();
                 toolTipMeasuredWidth = parent.getWidth();
             }
@@ -357,12 +405,18 @@ public class TourGuide {
                     int fixedY;
                     int toolTipHeightAfterLayouted = mToolTipViewGroup.getHeight();
                     fixedY = getYForTooTip(mToolTip.mGravity, toolTipHeightAfterLayouted, targetViewY, adjustment);
-                    layoutParams.setMargins((int)mToolTipViewGroup.getX(),fixedY,0,0);
+//                    layoutParams.horizontalMargin=(int)mToolTipViewGroup.getX();
+                    layoutParams.y = fixedY- getStatusBarHeight();
+                    wm.updateViewLayout(mToolTipViewGroup, layoutParams);
                 }
             });
 
             // set the position using setMargins on the left and top
-            layoutParams.setMargins(resultPoint.x, resultPoint.y, 0, 0);
+            layoutParams.x=(int)resultPoint.x;
+            layoutParams.y = resultPoint.y-getStatusBarHeight();
+            wm.updateViewLayout(mToolTipViewGroup, layoutParams);
+
+//            layoutParams.setMargins(resultPoint.x, resultPoint.y, 0, 0);
         }
 
     }
@@ -402,7 +456,13 @@ public class TourGuide {
         final FloatingActionButton invisFab = new FloatingActionButton(mActivity);
         invisFab.setSize(FloatingActionButton.SIZE_MINI);
         invisFab.setVisibility(View.INVISIBLE);
-        ((ViewGroup)mActivity.getWindow().getDecorView()).addView(invisFab);
+//        ((ViewGroup)mActivity.getWindow().getDecorView()).addView(invisFab);
+        if (invisFab.getParent()==null) {
+            wm.addView(invisFab, params);
+        }
+        else{
+            wm.updateViewLayout(invisFab, params);
+        }
 
         // fab is the real fab that is going to be added
         final FloatingActionButton fab = new FloatingActionButton(mActivity);
@@ -440,7 +500,11 @@ public class TourGuide {
         // but we're adding it to the content area only, so we need to offset it to the same Y value of contentArea
 
         layoutParams.setMargins(0,-pos[1],0,0);
-        contentArea.addView(mFrameLayout, layoutParams);
+//        contentArea.addView(mFrameLayout, params);
+        RelativeLayout.LayoutParams relativeLayoutParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        RelativeLayout relativeLayoutContainer = new RelativeLayout(mActivity);
+        relativeLayoutContainer.addView(mFrameLayout,relativeLayoutParams);
+        wm.addView(relativeLayoutContainer, params);
     }
 
     private void performAnimationOn(final View view){
