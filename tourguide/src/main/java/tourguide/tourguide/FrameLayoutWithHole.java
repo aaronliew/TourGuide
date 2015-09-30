@@ -272,9 +272,9 @@ public class FrameLayoutWithHole extends FrameLayout {
             mEraserCanvas.drawColor(mOverlay.mBackgroundColor);
             int padding = (int) (10 * mDensity);
             if (mOverlay.mStyle == Overlay.Style.Rectangle) {
-                mEraserCanvas.drawRect(mPos[0] - padding, mPos[1] - padding, mPos[0] + mViewHole.getWidth() + padding, mPos[1] + mViewHole.getHeight() + padding, mEraser);
+                mEraserCanvas.drawRect(mPos[0] - padding, mPos[1] - padding - getStatusBarHeight(), mPos[0] + mViewHole.getWidth() + padding, mPos[1] + mViewHole.getHeight() + padding - getStatusBarHeight(), mEraser);
             } else {
-                mEraserCanvas.drawCircle(mPos[0] + mViewHole.getWidth() / 2, mPos[1] + mViewHole.getHeight() / 2, mRadius, mEraser);
+                mEraserCanvas.drawCircle(mPos[0] + mViewHole.getWidth() / 2, mPos[1] + mViewHole.getHeight() / 2 -  getStatusBarHeight(), mRadius, mEraser);
             }
         }
         canvas.drawBitmap(mEraserBitmap, 0, 0, null);
@@ -307,5 +307,14 @@ public class FrameLayoutWithHole extends FrameLayout {
      */
     public int getScreenHeight(Activity activity){
         return activity.getResources().getDisplayMetrics().heightPixels;
+    }
+
+    private int getStatusBarHeight() {
+        int result = 0;
+        int resourceId = mActivity.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = mActivity.getResources().getDimensionPixelSize(resourceId);
+        }
+        return result;
     }
 }
