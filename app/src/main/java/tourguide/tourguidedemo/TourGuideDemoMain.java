@@ -34,7 +34,7 @@ public class TourGuideDemoMain extends ActionBarActivity {
         public Object getItem(int arg0) { return null;}
         public long getItemId(int position) { return position; }
         public int getCount() {
-            return 17;
+            return 18;
 //            return 17;
         }
 
@@ -248,6 +248,26 @@ public class TourGuideDemoMain extends ActionBarActivity {
                     @Override
                     public void onClick(View v) {
                         dialog.show();
+                    }
+                });
+            }
+
+            else if (position == 17) {
+                text.setText("Dialog Fragment");
+                infoIcon.setVisibility(View.VISIBLE);
+                infoIcon.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
+                        builder.setTitle("Button Tour").setMessage("- Button Tour example shows a sequence of TourGuide running on different buttons. \n- The method of proceeding to the next TourGuide is to press on the button itself. \n- This is suitable when you actually want the user to click on the button during the Tour.\n");
+                        builder.create().show();
+                    }
+                });
+                row.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        mIntent = new Intent(mActivity, DialogFragmentActivity.class);
+                        startActivity(mIntent);
                     }
                 });
             }
