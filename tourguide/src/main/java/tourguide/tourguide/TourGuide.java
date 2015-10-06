@@ -193,7 +193,7 @@ public class TourGuide {
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT, 8, PixelFormat.TRANSLUCENT);
+                WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY, 8, PixelFormat.TRANSLUCENT);
 //        params.gravity = Gravity.BOTTOM | Gravity.TOP;
          wm = (WindowManager) mActivity.getSystemService(Activity.WINDOW_SERVICE);
 
